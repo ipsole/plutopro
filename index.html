@@ -525,7 +525,7 @@
 
             const systemInstruction = { role: "user", parts: [{ text: systemPrompt }] };
 
-            const apiKey = "AIzaSyD1As_283H1ODoNQ5ic13BLagte00Hu2_E"; // The API key is injected by the environment
+            const apiKey = "AIzaSyDOYtDVPIIYbqgXReJyskbgR1t93sKep5A"; // The API key is injected by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const apiRequestBody = { contents: [systemInstruction, ...activeChat.history] };
             
