@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pluto Chatbot</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Showdown.js for Markdown Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+    <style>
+        :root { --bg-light: #f1f5f9; }
+        html, body { overflow: hidden; height: 100%; }
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background-color: #ffffff;
+            background-image: radial-gradient(ellipse at center, rgba(226, 232, 240, 0.4) 0%, rgba(255,255,255,1) 70%);
+        }
+        #chat-history::-webkit-scrollbar, #chat-previews::-webkit-scrollbar, #task-list::-webkit-scrollbar, #todo-tabs::-webkit-scrollbar, #notes-list::-webkit-scrollbar { width: 6px; }
+        #chat-history::-webkit-scrollbar-track, #chat-previews::-webkit-scrollbar-track, #task-list::-webkit-scrollbar-track, #todo-tabs::-webkit-scrollbar-track, #notes-list::-webkit-scrollbar-track { background: transparent; }
+        #chat-history::-webkit-scrollbar-thumb, #chat-previews::-webkit-scrollbar-thumb, #task-list::-webkit-scrollbar-thumb, #todo-tabs::-webkit-scrollbar-thumb, #notes-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        #chat-previews::-webkit-scrollbar { display: none; }
+        #chat-previews { -ms-overflow-style: none; scrollbar-width: none; }
+        .prose ul { list-style-type: disc; padding-left: 1.5rem; } .prose ol { list-style-type: decimal; padding-left: 1.5rem; }
+        .hidden { display: none; }
+        .chat-preview-card-content { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        #message-input, #login-form input, #signup-form input, #profile-form input, #todo-input { font-size: 16px; }
+        .prose { font-size: 0.95rem; line-height: 1.6; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes blink-smooth { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .blinking-logo { animation: blink-smooth 1.5s ease-in-out infinite; }
+        .task-item.completed span { text-decoration: line-through; color: #94a3b8; }
+        #message-input { box-shadow: 0 0 15px rgba(255, 255, 255, 0.7); border: none; }
+        #message-input:focus { outline: none; box-shadow: 0 0 25px rgba(255, 255, 255, 0.9); }
+        @keyframes shine { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .shine-effect { position: relative; overflow: hidden; }
+        .shine-effect::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(110deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 60%); animation: shine 5s infinite; }
+    </style>
+</head>
+<body class="text-slate-800 flex items-center justify-center text-sm">
+    
+    <div id="auth-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8 relative">
+            <button id="close-modal-btn" class="absolute top-3 right-3 text-2xl text-slate-400 hover:text-slate-600">&times;</button>
+            <div class="text-center mb-8">
+                <img src="https://media.istockphoto.com/id/1331167052/vector/letter-p-paper-logo-template-design.jpg?s=612x612&w=0&k=20&c=HQVvPVRw6ePUu6rWPTP7TpqEDM_n7xJOhtccMxks2m8=" alt="Pluto Logo" class="w-16 h-16 rounded-full mx-auto mb-4 shadow-lg">
+                <h1 class="text-3xl font-bold text-black">Welcome to Pluto</h1>
+            </div>
+            <div class="flex border-b border-slate-200 mb-6">
+                <button id="login-tab" class="flex-1 font-semibold py-2 text-black border-b-2 border-black">Log In</button>
+                <button id="signup-tab" class="flex-1 font-semibold py-2 text-slate-400">Sign Up</button>
+            </div>
+            <form id="login-form">
+                <input id="login-email" type="email" placeholder="Email" class="w-full bg-slate-100 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-black" required>
+                <input id="login-password" type="password" placeholder="Password" class="w-full bg-slate-100 rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-black" required>
+                <button type="submit" class="w-full bg-black text-white font-semibold rounded-lg py-2.5 hover:bg-gray-800 transition-colors flex items-center justify-center">Log In</button>
+                <p id="login-error" class="text-red-500 text-xs mt-2 text-center h-4"></p>
+            </form>
+            <form id="signup-form" class="hidden">
+                <input id="signup-email" type="email" placeholder="Email" class="w-full bg-slate-100 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-black" required>
+                <input id="signup-password" type="password" placeholder="Password" class="w-full bg-slate-100 rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-black" required>
+                <button type="submit" class="w-full bg-black text-white font-semibold rounded-lg py-2.5 hover:bg-gray-800 transition-colors flex items-center justify-center">Create Account</button>
+                <p id="signup-error" class="text-red-500 text-xs mt-2 text-center h-4"></p>
+            </form>
+        </div>
+    </div>
+
+    <div id="profile-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8 relative">
+            <button id="close-profile-modal-btn" class="absolute top-3 right-3 text-2xl text-slate-400 hover:text-slate-600">&times;</button>
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-black">Edit Profile</h1>
+            </div>
+            <form id="profile-form">
+                <input id="display-name-input" type="text" placeholder="Display Name" class="w-full bg-slate-100 rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-black" required>
+                <button type="submit" class="w-full bg-black text-white font-semibold rounded-lg py-2.5 hover:bg-gray-800 transition-colors flex items-center justify-center">Save Changes</button>
+                <p id="profile-error" class="text-red-500 text-xs mt-2 text-center h-4"></p>
+            </form>
+        </div>
+    </div>
+    
+    <div id="typing-overlay" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4">
+        <div class="w-full max-w-lg shine-effect rounded-full">
+             <form id="chat-form" class="w-full flex items-center gap-3 bg-white/90 p-1 rounded-full">
+                <input type="text" id="message-input" placeholder="Ask Pluto or type /imagine to generate an image..." class="w-full bg-transparent text-black px-5 py-3 focus:outline-none" required autocomplete="off">
+                <button type="submit" id="send-button" class="bg-black text-white font-semibold rounded-full p-3 w-12 h-12 flex items-center justify-center flex-shrink-0 hover:bg-gray-800"></button>
+            </form>
+        </div>
+        <button id="close-typing-overlay-btn" class="mt-4 text-white text-3xl">&times;</button>
+    </div>
+
+    <div id="response-overlay" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 p-4">
+        <div class="w-full sm:max-w-lg bg-white/90 rounded-2xl shadow-[0_0_25px_rgba(255,255,255,0.9)] p-8 relative max-h-[40vh] flex flex-col shine-effect">
+            <button id="close-response-btn" class="absolute top-4 right-4 text-slate-500 text-3xl hover:text-black z-10">&times;</button>
+            <div id="response-content" class="prose text-black max-w-full text-lg overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="todo-panel" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl z-30 flex flex-col h-[60vh] sm:h-[70vh]">
+        <header class="p-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+            <h2 class="font-bold text-lg text-black">To-Dos</h2>
+            <button id="close-todo-panel-btn" class="text-2xl text-slate-400 hover:text-slate-600">&times;</button>
+        </header>
+        <main id="task-list" class="flex-1 p-4 overflow-y-auto space-y-2"></main>
+        <footer class="p-3 border-t border-slate-200">
+            <form id="todo-form" class="flex items-center gap-2">
+                <input id="todo-input" type="text" placeholder="Add a new task..." class="w-full bg-slate-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black" required>
+                <button type="submit" class="bg-black text-white font-semibold rounded-lg p-2 flex-shrink-0 hover:bg-gray-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+            </form>
+        </footer>
+    </div>
+    
+    <div id="calculator-panel" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xs bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl z-30 p-4">
+        <header class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-lg text-black">Calculator</h2>
+            <button id="close-calculator-btn" class="text-2xl text-slate-400 hover:text-slate-600">&times;</button>
+        </header>
+        <div id="calculator-display" class="bg-slate-100 rounded-lg p-4 text-right text-3xl font-mono text-black mb-4 truncate">0</div>
+        <div id="calculator-buttons" class="grid grid-cols-4 gap-2">
+            <button class="calc-btn bg-slate-200 hover:bg-slate-300 text-black font-semibold rounded-lg p-4 text-lg" data-action="clear">C</button>
+            <button class="calc-btn bg-slate-200 hover:bg-slate-300 text-black font-semibold rounded-lg p-4 text-lg" data-operator="divide">/</button>
+            <button class="calc-btn bg-slate-200 hover:bg-slate-300 text-black font-semibold rounded-lg p-4 text-lg" data-operator="multiply">*</button>
+            <button class="calc-btn bg-slate-200 hover:bg-slate-300 text-black font-semibold rounded-lg p-4 text-lg" data-operator="subtract">-</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">7</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">8</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">9</button>
+            <button class="calc-btn bg-slate-200 hover:bg-slate-300 text-black font-semibold rounded-lg p-4 text-lg row-span-2" data-operator="add">+</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">4</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">5</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">6</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">1</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">2</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg">3</button>
+            <button class="calc-btn bg-black hover:bg-gray-800 text-white font-semibold rounded-lg p-4 text-lg row-span-2" data-action="calculate">=</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg col-span-2">0</button>
+            <button class="calc-btn bg-white hover:bg-slate-100 text-black font-semibold rounded-lg p-4 text-lg" data-action="decimal">.</button>
+        </div>
+    </div>
+    
+    <div id="notes-panel" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl z-30 flex flex-col h-[60vh] sm:h-[70vh]">
+        <header class="p-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+            <h2 class="font-bold text-lg text-black">Notes</h2>
+            <button id="close-notes-panel-btn" class="text-2xl text-slate-400 hover:text-slate-600">&times;</button>
+        </header>
+        <main id="notes-list" class="flex-1 p-4 overflow-y-auto space-y-4"></main>
+        <footer class="p-3 border-t border-slate-200">
+            <form id="notes-form" class="flex flex-col gap-2">
+                <input id="note-title-input" type="text" placeholder="Note Title" class="w-full bg-slate-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black" required>
+                <textarea id="note-content-input" placeholder="Write your note here..." class="w-full h-24 bg-slate-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black resize-none" required></textarea>
+                <button type="submit" id="save-note-btn" class="bg-black text-white font-semibold rounded-lg py-2 hover:bg-gray-800">
+                    Add Note
+                </button>
+            </form>
+        </footer>
+    </div>
+
+    <div id="app-container" class="w-full h-full flex items-center justify-center p-4">
+        <div class="w-full h-full flex flex-col bg-white/80 backdrop-blur-sm sm:max-w-2xl sm:h-[80vh] rounded-2xl border border-slate-200/80 shadow-2xl">
+            <header class="p-4 border-b border-slate-200/80 flex items-center justify-between flex-shrink-0 shadow-sm z-10">
+                <div class="relative">
+                    <button id="auth-button" class="flex items-center gap-2 text-left rounded-lg p-1 -ml-1 hover:bg-slate-100 transition-colors">
+                        <img src="https://media.istockphoto.com/id/1331167052/vector/letter-p-paper-logo-template-design.jpg?s=612x612&w=0&k=20&c=HQVvPVRw6ePUu6rWPTP7TpqEDM_n7xJOhtccMxks2m8=" alt="Pluto Logo" class="w-8 h-8 rounded-full shadow-lg flex-shrink-0">
+                        <div>
+                            <h1 class="text-xl font-bold text-black">Pluto</h1>
+                            <p id="user-status" class="text-xs text-slate-500 font-mono truncate max-w-[150px]">Login</p>
+                        </div>
+                    </button>
+                    <div id="profile-dropdown" class="hidden absolute top-full mt-2 left-0 w-48 bg-white rounded-lg shadow-xl border border-slate-200/80 z-20">
+                        <div class="p-2">
+                            <button id="edit-profile-button" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-md hover:bg-slate-100">Edit Profile</button>
+                            <button id="signout-button" class="w-full text-left px-3 py-1.5 text-sm text-red-600 rounded-md hover:bg-slate-100">Sign Out</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="live-clock" class="flex items-center gap-2 text-sm text-slate-500 font-medium text-right">
+                    <span id="time-icon"></span>
+                    <div id="time-display"></div>
+                </div>
+            </header>
+            <div class="w-full bg-white/50 border-b border-slate-200/80 p-3 flex-shrink-0">
+                <div id="chat-previews" class="flex items-center gap-3 overflow-x-auto pb-2"></div>
+            </div>
+            <main class="flex-1 p-4 overflow-y-auto space-y-4 bg-transparent min-h-0 flex flex-col">
+                <h2 id="active-chat-title" class="text-center text-lg font-bold text-slate-600 pb-1 mb-2 flex-shrink-0 truncate"></h2>
+                <div id="chat-history" class="flex-1 space-y-4 overflow-y-auto">
+                </div>
+            </main>
+            <footer class="p-4 bg-white/80 backdrop-blur-sm border-t border-slate-200/80 flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] z-10 flex items-center justify-between">
+                <div class="flex gap-2">
+                    <button id="prev-chat-btn" title="Previous Chat" class="bg-white/80 text-black rounded-full w-12 h-12 flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <button id="next-chat-btn" title="Next Chat" class="bg-white/80 text-black rounded-full w-12 h-12 flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                </div>
+                <div class="flex gap-4">
+                     <button id="todo-button" title="To-Do List" class="bg-white/80 text-black rounded-full w-14 h-14 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.7)] hover:shadow-[0_0_25px_rgba(255,255,255,0.9)] transition-shadow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M5 7h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/><path d="M12 5V2m-5 3V2m10 3V2"/></svg>
+                    </button>
+                    <button id="start-typing-button" title="New Message" class="bg-white/80 text-black rounded-full w-14 h-14 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.7)] hover:shadow-[0_0_25px_rgba(255,255,255,0.9)] transition-shadow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    </button>
+                    <button id="calculator-button" title="Calculator" class="bg-white/80 text-black rounded-full w-14 h-14 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.7)] hover:shadow-[0_0_25px_rgba(255,255,255,0.9)] transition-shadow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><g><line x1="8" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="12" y2="14"></line><line x1="8" y1="18" x2="12" y2="18"></line></g></svg>
+                    </button>
+                    <button id="notes-button" title="Notes" class="bg-white/80 text-black rounded-full w-14 h-14 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.7)] hover:shadow-[0_0_25px_rgba(255,255,255,0.9)] transition-shadow">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-notebook-text"><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h8"/><path d="M8 18h8"/></svg>
+                    </button>
+                </div>
+                <div class="flex gap-2" style="width: 104px;"></div>
+            </footer>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, query, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const authModal = document.getElementById('auth-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const authButton = document.getElementById('auth-button');
+        const loginTab = document.getElementById('login-tab');
+        const signupTab = document.getElementById('signup-tab');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const signoutButton = document.getElementById('signout-button');
+        const userStatusEl = document.getElementById('user-status');
+        const clockElement = document.getElementById('live-clock');
+        const timeIconEl = document.getElementById('time-icon');
+        const timeDisplayEl = document.getElementById('time-display');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const chatHistoryEl = document.getElementById('chat-history');
+        const chatPreviewsEl = document.getElementById('chat-previews');
+        const sendButton = document.getElementById('send-button');
+        const profileDropdown = document.getElementById('profile-dropdown');
+        const editProfileButton = document.getElementById('edit-profile-button');
+        const profileModal = document.getElementById('profile-modal');
+        const closeProfileModalBtn = document.getElementById('close-profile-modal-btn');
+        const profileForm = document.getElementById('profile-form');
+        const displayNameInput = document.getElementById('display-name-input');
+        const startTypingButton = document.getElementById('start-typing-button');
+        const typingOverlay = document.getElementById('typing-overlay');
+        const responseOverlay = document.getElementById('response-overlay');
+        const responseContent = document.getElementById('response-content');
+        const closeResponseBtn = document.getElementById('close-response-btn');
+        const closeTypingOverlayBtn = document.getElementById('close-typing-overlay-btn');
+        const todoButton = document.getElementById('todo-button');
+        const todoPanel = document.getElementById('todo-panel');
+        const closeTodoPanelBtn = document.getElementById('close-todo-panel-btn');
+        const todoForm = document.getElementById('todo-form');
+        const todoInput = document.getElementById('todo-input');
+        const taskListEl = document.getElementById('task-list');
+        const todoTabsEl = document.getElementById('todo-tabs');
+        const calculatorButton = document.getElementById('calculator-button');
+        const calculatorPanel = document.getElementById('calculator-panel');
+        const closeCalculatorBtn = document.getElementById('close-calculator-btn');
+        const calculatorDisplay = document.getElementById('calculator-display');
+        const calculatorButtons = document.getElementById('calculator-buttons');
+        const notesButton = document.getElementById('notes-button');
+        const notesPanel = document.getElementById('notes-panel');
+        const closeNotesPanelBtn = document.getElementById('close-notes-panel-btn');
+        const notesForm = document.getElementById('notes-form');
+        const noteTitleInput = document.getElementById('note-title-input');
+        const noteContentInput = document.getElementById('note-content-input');
+        const notesListEl = document.getElementById('notes-list');
+        const saveNoteBtn = document.getElementById('save-note-btn');
+        const prevChatBtn = document.getElementById('prev-chat-btn');
+        const nextChatBtn = document.getElementById('next-chat-btn');
+        const activeChatTitleEl = document.getElementById('active-chat-title');
+
+        let allChats = [], activeChatId = null, isGenerating = false, allTasks = [], allNotes = [];
+        let userId = null, db = null, auth = null, chatsUnsubscribe = null, tasksUnsubscribe = null, notesUnsubscribe = null, isGuest = true;
+        let responseAbortController = null;
+        let typingInterval = null;
+        let editingNoteId = null;
+
+        const markdownConverter = new showdown.Converter({ openLinksInNewWindow: true });
+        
+        const sendIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`;
+        const stopIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>`;
+        const copyIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+        const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        const loadingSpinner = `<svg class="spinner w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        const sunIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+        const cloudSunIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16.5A4.5 4.5 0 1 1 7.5 12a4.5 4.5 0 0 1 4.5 4.5z"></path><path d="M12 7.27V12h4.73"></path><path d="M17.5 17.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z"></path><path d="M22 17.5a4.5 4.5 0 0 0-4.5-4.5H13a8 8 0 0 0-8 8h12.5A4.5 4.5 0 0 0 22 17.5z"></path></svg>`;
+        const moonIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+        const composeIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
+        const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="4" height="12"></rect><rect x="14" y="6" width="4" height="12"></rect></svg>`;
+
+        async function initializeFirebase() {
+            const firebaseConfig = {
+              apiKey: "AIzaSyDAg5A4dJ1ZcNb8lsmUZw2k3C9wv2rPSQo",
+              authDomain: "pluto-a0033.firebaseapp.com",
+              projectId: "pluto-a0033",
+              storageBucket: "pluto-a0033.appspot.com",
+              messagingSenderId: "688071466792",
+              appId: "1:688071466792:web:caad0e69f4ae23d4fb7a1d",
+              measurementId: "G-X5GRJZRRG1"
+            };
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                onAuthStateChanged(auth, handleAuthStateChange);
+            } catch (error) {
+                console.error("Firebase init error:", error);
+                handleAuthStateChange(null);
+            }
+        }
+        
+        function handleAuthStateChange(user) {
+            if (chatsUnsubscribe) { chatsUnsubscribe(); chatsUnsubscribe = null; }
+            allChats = []; activeChatId = null;
+            chatHistoryEl.innerHTML = ''; chatPreviewsEl.innerHTML = '';
+            if (tasksUnsubscribe) { tasksUnsubscribe(); tasksUnsubscribe = null; }
+            allTasks = []; taskListEl.innerHTML = '';
+            if (notesUnsubscribe) { notesUnsubscribe(); notesUnsubscribe = null; }
+            allNotes = []; notesListEl.innerHTML = '';
+            
+            if (user && !user.isAnonymous) {
+                userId = user.uid;
+                isGuest = false;
+                authModal.classList.add('hidden');
+            } else {
+                userId = null;
+                isGuest = true;
+            }
+            updateUserStatus();
+            loadChats();
+            loadTasks();
+            loadNotes();
+        }
+
+        authButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isGuest) authModal.classList.remove('hidden');
+            else profileDropdown.classList.toggle('hidden');
+        });
+        editProfileButton.addEventListener('click', () => {
+            displayNameInput.value = auth.currentUser.displayName || '';
+            profileModal.classList.remove('hidden');
+            profileDropdown.classList.add('hidden');
+        });
+        window.addEventListener('click', () => {
+            if (!profileDropdown.classList.contains('hidden')) profileDropdown.classList.add('hidden');
+        });
+        closeModalBtn.addEventListener('click', () => authModal.classList.add('hidden'));
+        closeProfileModalBtn.addEventListener('click', () => profileModal.classList.add('hidden'));
+        signoutButton.addEventListener('click', () => {
+            if (auth) signOut(auth).catch(error => console.error("Sign out error:", error));
+        });
+        loginTab.addEventListener('click', () => {
+            loginTab.classList.add('border-b-2', 'border-black', 'text-black');
+            loginTab.classList.remove('text-slate-400');
+            signupTab.classList.remove('border-b-2', 'border-black');
+            signupTab.classList.add('text-slate-400');
+            loginForm.classList.remove('hidden');
+            signupForm.classList.add('hidden');
+        });
+        signupTab.addEventListener('click', () => {
+            signupTab.classList.add('border-b-2', 'border-black', 'text-black');
+            signupTab.classList.remove('text-slate-400');
+            loginTab.classList.remove('border-b-2', 'border-black');
+            loginTab.classList.add('text-slate-400');
+            signupForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+        });
+        loginForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            const button = loginForm.querySelector('button');
+            const originalContent = button.innerHTML;
+            button.innerHTML = loadingSpinner;
+            button.disabled = true;
+            try { 
+                await signInWithEmailAndPassword(auth, loginForm['login-email'].value, loginForm['login-password'].value); 
+            } catch (error) { 
+                document.getElementById('login-error').textContent = error.message; 
+            } finally {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }
+        });
+        signupForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            const button = signupForm.querySelector('button');
+            const originalContent = button.innerHTML;
+            button.innerHTML = loadingSpinner;
+            button.disabled = true;
+            try { 
+                await createUserWithEmailAndPassword(auth, signupForm['signup-email'].value, signupForm['signup-password'].value); 
+            } catch (error) { 
+                document.getElementById('signup-error').textContent = error.message; 
+            } finally {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }
+        });
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newName = displayNameInput.value.trim();
+            if (!newName) return;
+            const button = profileForm.querySelector('button');
+            const originalContent = button.innerHTML;
+            button.innerHTML = loadingSpinner;
+            button.disabled = true;
+            try {
+                await updateProfile(auth.currentUser, { displayName: newName });
+                await setDoc(doc(db, 'users', userId), { displayName: newName }, { merge: true });
+                profileModal.classList.add('hidden');
+                updateUserStatus();
+            } catch (error) {
+                document.getElementById('profile-error').textContent = error.message;
+            } finally {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }
+        });
+
+        function loadChats() {
+            if (isGuest || !userId) loadChatsFromLocalStorage();
+            else loadChatsFromFirestore();
+        }
+        function loadChatsFromLocalStorage() {
+            const saved = localStorage.getItem('plutoGuestChats');
+            allChats = saved ? JSON.parse(saved) : [];
+            if (allChats.length === 0) startNewChat();
+            else { 
+                activeChatId = localStorage.getItem('plutoGuestActiveChatId') || allChats[0]?.id; 
+                renderUI(); 
+            }
+        }
+        function loadChatsFromFirestore() {
+            if (!userId) return;
+            const q = query(collection(db, 'users', userId, 'chats'));
+            chatsUnsubscribe = onSnapshot(q, snapshot => {
+                const firestoreChats = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.id - a.id);
+                if (isGenerating) {
+                    allChats = firestoreChats;
+                    renderChatPreviews();
+                    return;
+                }
+                allChats = firestoreChats;
+                if (allChats.length === 0) {
+                    startNewChat();
+                    return;
+                }
+                if (!activeChatId || !allChats.some(c => String(c.id) === String(activeChatId))) {
+                    activeChatId = allChats[0]?.id || null;
+                }
+                renderUI();
+            }, error => {
+                console.error("Firestore snapshot error:", error);
+                appendMessage("Could not load your chats. Please try again later.", "model", true);
+            });
+        }
+        async function saveChat(chat) {
+            const chatToSave = allChats.find(c => c.id === chat.id);
+            if (!chatToSave) return;
+            if (isGuest) localStorage.setItem('plutoGuestChats', JSON.stringify(allChats));
+            else if (userId) {
+                try {
+                    await setDoc(doc(db, 'users', userId, 'chats', String(chat.id)), chat, { merge: true });
+                } catch (error) {
+                    console.error("Error saving chat to Firestore:", error);
+                }
+            }
+        }
+        async function deleteChatPersistence(chatId) {
+            if (isGuest) localStorage.setItem('plutoGuestChats', JSON.stringify(allChats));
+            else if (userId) await deleteDoc(doc(db, 'users', userId, 'chats', String(chatId)));
+        }
+
+        async function startNewChat() {
+            const newChat = { id: Date.now(), name: null, history: [] };
+            allChats.unshift(newChat);
+            activeChatId = newChat.id;
+            await saveChat(newChat);
+            renderUI();
+        }
+        function switchChat(chatId) {
+            activeChatId = chatId;
+            if (isGuest) localStorage.setItem('plutoGuestActiveChatId', String(activeChatId));
+            renderUI();
+            requestAnimationFrame(scrollActiveChatIntoView);
+        }
+        async function deleteChat(e, chatId) {
+            e.stopPropagation();
+            const chatIdStr = String(chatId);
+            allChats = allChats.filter(c => String(c.id) !== chatIdStr);
+            if (String(activeChatId) === chatIdStr) activeChatId = allChats[0]?.id || null;
+            await deleteChatPersistence(chatIdStr);
+            if (allChats.length === 0) startNewChat();
+            else renderUI();
+        }
+        async function editChatTitle(e, chatId) {
+            e.stopPropagation();
+            const chat = allChats.find(c => String(c.id) === String(chatId));
+            if (!chat) return;
+            const card = e.target.closest('.chat-preview-card');
+            const p = card.querySelector('p');
+            if (!p) return;
+            const currentTitle = p.textContent;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentTitle;
+            input.className = 'text-xs font-semibold text-slate-800 bg-white w-full rounded focus:outline-none focus:ring-1 focus:ring-black';
+            p.replaceWith(input);
+            input.focus();
+            input.select();
+            const save = async () => {
+                const newTitle = input.value.trim();
+                if (newTitle && newTitle !== currentTitle) {
+                    chat.name = newTitle;
+                    await saveChat(chat);
+                }
+                renderChatPreviews();
+                renderActiveChat(); // Update title on main screen
+            };
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') input.blur();
+                else if (event.key === 'Escape') renderChatPreviews();
+            });
+        }
+
+        function updateUserStatus() {
+            if (isGuest) userStatusEl.textContent = "Login";
+            else userStatusEl.textContent = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
+        }
+        function renderUI() { renderChatPreviews(); renderActiveChat(); }
+        function stopTyping() {
+            if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+        }
+        
+        const stopGeneration = () => {
+            if (responseAbortController) responseAbortController.abort();
+            stopTyping();
+            setGeneratingState(false);
+            responseOverlay.classList.add('hidden');
+        };
+
+        function setGeneratingState(generating) {
+            isGenerating = generating;
+            startTypingButton.disabled = false;
+            if (generating) {
+                startTypingButton.innerHTML = pauseIcon;
+                startTypingButton.removeEventListener('click', handleStartTypingClick);
+                startTypingButton.addEventListener('click', handleStopGenerationClick);
+            } else {
+                startTypingButton.innerHTML = composeIcon;
+                startTypingButton.removeEventListener('click', handleStopGenerationClick);
+                startTypingButton.addEventListener('click', handleStartTypingClick);
+            }
+        }
+        
+        async function getAgentResponse(userMessage, signal) {
+            const activeChat = allChats.find(c => c.id == activeChatId);
+            if (!activeChat) return { error: "Error: No active chat found." };
+
+            const tools = [{
+                "functionDeclarations": [
+                {
+                    "name": "addTasks",
+                    "description": "Adds one or more tasks to the user's to-do list.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": { 
+                            "tasks": { 
+                                "type": "ARRAY", 
+                                "description": "An array of tasks to add.",
+                                "items": { "type": "STRING" }
+                            } 
+                        },
+                        "required": ["tasks"]
+                    }
+                },
+                {
+                    "name": "getTasks",
+                    "description": "Retrieves all tasks from the user's to-do list.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {}
+                    }
+                },
+                {
+                    "name": "deleteTasks",
+                    "description": "Deletes one or more tasks from the user's to-do list based on their text.",
+                     "parameters": {
+                        "type": "OBJECT",
+                        "properties": { 
+                            "tasks": { 
+                                "type": "ARRAY", 
+                                "description": "An array of task texts to delete.",
+                                "items": { "type": "STRING" }
+                            } 
+                        },
+                        "required": ["tasks"]
+                    }
+                },
+                {
+                    "name": "addNote",
+                    "description": "Adds a new note with a title and content. Use this to save new information for the user.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "title": { "type": "STRING", "description": "The title of the note." },
+                            "content": { "type": "STRING", "description": "The content of the note." }
+                        },
+                        "required": ["title", "content"]
+                    }
+                },
+                {
+                    "name": "getNotes",
+                    "description": "Retrieves all of the user's notes.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {}
+                    }
+                },
+                {
+                    "name": "editNote",
+                    "description": "Edits an existing note. Use this to update a note's title or content. You must be provided with the current title and the new content.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "currentTitle": { "type": "STRING", "description": "The current title of the note to be edited." },
+                            "newContent": { "type": "STRING", "description": "The new content to be saved in the note." },
+                            "newTitle": { "type": "STRING", "description": "The new title of the note (optional)." }
+                        },
+                        "required": ["currentTitle", "newContent"]
+                    }
+                },
+                {
+                    "name": "deleteNote",
+                    "description": "Deletes an existing note based on its title.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "title": { "type": "STRING", "description": "The title of the note to delete." }
+                        },
+                        "required": ["title"]
+                    }
+                }]
+            }];
+            
+            const systemPrompt = "You are Pluto, a helpful AI assistant. You can manage a to-do list for the user and their notes. Use the provided tools to add, remove, edit, or get items from their lists. For all other queries, respond as a general conversational AI. When adding or editing a note.";
+            
+            const historyForAPI = [...activeChat.history, { role: 'user', parts: [{ text: userMessage }] }];
+
+            const apiKey = "AIzaSyA4aI7SmY-XXkylV55dG7dOOpDVfiQn4XA";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiRequestBody = { 
+                contents: historyForAPI,
+                tools: tools,
+                systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
+            };
+            
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(apiRequestBody), signal });
+                if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                const result = await response.json();
+                
+                const part = result.candidates?.[0]?.content?.parts?.[0];
+
+                activeChat.history.push({ role: 'user', parts: [{ text: userMessage }] });
+
+                if (part.functionCall) {
+                    const { name, args } = part.functionCall;
+                    if (name === 'addTasks') {
+                        const tasks = args.tasks || [];
+                        for (const taskText of tasks) {
+                            await addTask(taskText);
+                        }
+                        let confirmationMessage;
+                        if (tasks.length > 1) {
+                            confirmationMessage = `I've added ${tasks.length} items to your to-do list.`;
+                        } else if (tasks.length === 1) {
+                            confirmationMessage = `I've added "${tasks[0]}" to your to-do list.`;
+                        } else {
+                            confirmationMessage = "I didn't find any tasks to add.";
+                        }
+                        
+                        activeChat.history.push({ role: 'model', parts: [{ text: confirmationMessage }] });
+                        await saveChat(activeChat);
+                        return { content: confirmationMessage };
+                    } else if (name === 'getTasks') {
+                        let taskMessage = allTasks.length > 0
+                            ? `Here is your to-do list:\n\n` + allTasks.map(t => `- [${t.completed ? 'x' : ' '}] ${t.text}`).join('\n')
+                            : `Your to-do list is empty.`;
+                        activeChat.history.push({ role: 'model', parts: [{ text: taskMessage }] });
+                        await saveChat(activeChat);
+                        return { content: taskMessage };
+                    } else if (name === 'deleteTasks') {
+                        const tasksToDelete = args.tasks || [];
+                        let deletedCount = 0;
+                        for (const taskText of tasksToDelete) {
+                            const task = allTasks.find(t => t.text.toLowerCase() === taskText.toLowerCase());
+                            if (task) {
+                                await deleteTask(task.id);
+                                deletedCount++;
+                            }
+                        }
+                        const confirmationMessage = `I've deleted ${deletedCount} item(s) from your to-do list.`;
+                        activeChat.history.push({ role: 'model', parts: [{ text: confirmationMessage }] });
+                        await saveChat(activeChat);
+                        return { content: confirmationMessage };
+                    } else if (name === 'addNote') {
+                         await addNote(args.title, args.content);
+                         const confirmationMessage = `I've added a note titled "${args.title}". You can see it in your notes panel!`;
+                         activeChat.history.push({ role: 'model', parts: [{ text: confirmationMessage }] });
+                         await saveChat(activeChat);
+                         return { content: confirmationMessage };
+                    } else if (name === 'getNotes') {
+                         let noteMessage = allNotes.length > 0
+                             ? `Here are your notes:\n\n` + allNotes.map(n => `**${n.title}**\n${n.content}`).join('\n\n')
+                             : `You don't have any notes yet.`;
+                         activeChat.history.push({ role: 'model', parts: [{ text: noteMessage }] });
+                         await saveChat(activeChat);
+                         return { content: noteMessage };
+                    } else if (name === 'editNote') {
+                        const existingNote = allNotes.find(n => n.title.toLowerCase() === args.currentTitle.toLowerCase());
+                        if (existingNote) {
+                            await updateNote(existingNote.id, args.newTitle || existingNote.title, args.newContent);
+                            const confirmationMessage = `I've updated your note titled "${args.currentTitle}" to "${args.newTitle || existingNote.title}".`;
+                            activeChat.history.push({ role: 'model', parts: [{ text: confirmationMessage }] });
+                            await saveChat(activeChat);
+                            return { content: confirmationMessage };
+                        } else {
+                            const errorMessage = `Sorry, I couldn't find a note titled "${args.currentTitle}".`;
+                            activeChat.history.push({ role: 'model', parts: [{ text: errorMessage }] });
+                            await saveChat(activeChat);
+                            return { content: errorMessage };
+                        }
+                    } else if (name === 'deleteNote') {
+                         const existingNote = allNotes.find(n => n.title.toLowerCase() === args.title.toLowerCase());
+                         if (existingNote) {
+                            await deleteNote(existingNote.id);
+                            const confirmationMessage = `I've deleted the note titled "${args.title}".`;
+                            activeChat.history.push({ role: 'model', parts: [{ text: confirmationMessage }] });
+                            await saveChat(activeChat);
+                            return { content: confirmationMessage };
+                         } else {
+                            const errorMessage = `Sorry, I couldn't find a note titled "${args.title}".`;
+                            activeChat.history.push({ role: 'model', parts: [{ text: errorMessage }] });
+                            await saveChat(activeChat);
+                            return { content: errorMessage };
+                         }
+                    }
+                } else if (part.text) {
+                    const agentReply = part.text;
+                    activeChat.history.push({ role: 'model', parts: [{ text: agentReply }] });
+                    await saveChat(activeChat);
+                    return { content: agentReply };
+                }
+                
+                return { error: "Unexpected API response format." };
+            } catch (error) {
+                if (error.name === 'AbortError') return { error: "Response stopped.", aborted: true };
+                console.error("Fetch Error:", error);
+                return { error: `Sorry, I couldn't get a response. Please check your connection.` };
+            }
+        }
+        
+        todoButton.addEventListener('click', () => todoPanel.classList.toggle('hidden'));
+        closeTodoPanelBtn.addEventListener('click', () => todoPanel.classList.add('hidden'));
+        notesButton.addEventListener('click', () => notesPanel.classList.toggle('hidden'));
+        closeNotesPanelBtn.addEventListener('click', () => notesPanel.classList.add('hidden'));
+        
+        notesForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = noteTitleInput.value.trim();
+            const content = noteContentInput.value.trim();
+            if (title && content) {
+                if (editingNoteId) {
+                    await updateNote(editingNoteId, title, content);
+                } else {
+                    await addNote(title, content);
+                }
+                noteTitleInput.value = '';
+                noteContentInput.value = '';
+                editingNoteId = null;
+                saveNoteBtn.textContent = 'Add Note';
+            }
+        });
+        
+        todoForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const taskText = todoInput.value.trim();
+            if (taskText) {
+                addTask(taskText);
+                todoInput.value = '';
+            }
+        });
+
+        function loadTasks() {
+            if (tasksUnsubscribe) tasksUnsubscribe();
+            if (isGuest || !userId) loadTasksFromLocalStorage();
+            else loadTasksFromFirestore();
+        }
+        function loadTasksFromLocalStorage() {
+            const saved = localStorage.getItem('plutoGuestTasks');
+            allTasks = saved ? JSON.parse(saved) : [];
+            renderTasks();
+        }
+        function loadTasksFromFirestore() {
+            if (!userId) return;
+            const q = query(collection(db, 'users', userId, 'tasks'));
+            tasksUnsubscribe = onSnapshot(q, snapshot => {
+                allTasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderTasks();
+            }, error => console.error("Error loading tasks:", error));
+        }
+
+        async function addTask(text) {
+            const newTask = {
+                id: String(Date.now()),
+                text: text,
+                completed: false,
+                createdAt: Date.now()
+            };
+            allTasks.push(newTask);
+            if (isGuest) localStorage.setItem('plutoGuestTasks', JSON.stringify(allTasks));
+            else if (userId) await setDoc(doc(db, 'users', userId, 'tasks', newTask.id), newTask);
+            renderTasks();
+        }
+        
+        async function saveTaskUpdate(taskId, dataToUpdate) {
+            const task = allTasks.find(t => t.id === taskId);
+            if (!task) return;
+            Object.assign(task, dataToUpdate);
+            if (isGuest) localStorage.setItem('plutoGuestTasks', JSON.stringify(allTasks));
+            else if (userId) await setDoc(doc(db, 'users', userId, 'tasks', taskId), dataToUpdate, { merge: true });
+        }
+
+        async function toggleTask(taskId) {
+            const task = allTasks.find(t => t.id === taskId);
+            if (!task) return;
+            await saveTaskUpdate(taskId, { completed: !task.completed });
+            renderTasks();
+        }
+
+        async function deleteTask(taskId) {
+            allTasks = allTasks.filter(t => t.id !== taskId);
+            if (isGuest) localStorage.setItem('plutoGuestTasks', JSON.stringify(allTasks));
+            else if (userId) await deleteDoc(doc(db, 'users', userId, 'tasks', taskId));
+            renderTasks();
+        }
+
+        function renderTasks() {
+            taskListEl.innerHTML = '';
+            const sortedTasks = [...allTasks].sort((a, b) => (a.completed === b.completed) ? b.createdAt - a.createdAt : a.completed ? 1 : -1);
+            if (sortedTasks.length === 0) {
+                taskListEl.innerHTML = `<p class="text-slate-400 text-center p-4">No tasks yet. Add one below!</p>`;
+                return;
+            }
+            sortedTasks.forEach(task => {
+                const taskEl = document.createElement('div');
+                taskEl.className = `task-item flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 ${task.completed ? 'completed' : ''}`;
+                taskEl.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} class="w-5 h-5 rounded-md text-black focus:ring-black cursor-pointer" onclick="toggleTask('${task.id}')">
+                        <span class="flex-1">${task.text}</span>
+                    </div>
+                    <button class="text-slate-400 hover:text-red-500 p-1" onclick="deleteTask('${task.id}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
+                `;
+                taskListEl.appendChild(taskEl);
+            });
+        }
+        
+        function loadNotes() {
+            if (notesUnsubscribe) notesUnsubscribe();
+            if (isGuest || !userId) loadNotesFromLocalStorage();
+            else loadNotesFromFirestore();
+        }
+
+        function loadNotesFromLocalStorage() {
+            const saved = localStorage.getItem('plutoGuestNotes');
+            allNotes = saved ? JSON.parse(saved) : [];
+            renderNotes();
+        }
+
+        function loadNotesFromFirestore() {
+            if (!userId) return;
+            const q = query(collection(db, 'users', userId, 'notes'));
+            notesUnsubscribe = onSnapshot(q, snapshot => {
+                allNotes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderNotes();
+            }, error => console.error("Error loading notes:", error));
+        }
+
+        async function addNote(title, content) {
+            const newNote = {
+                id: String(Date.now()),
+                title: title,
+                content: content,
+                createdAt: Date.now()
+            };
+            allNotes.push(newNote);
+            if (isGuest) localStorage.setItem('plutoGuestNotes', JSON.stringify(allNotes));
+            else if (userId) await setDoc(doc(db, 'users', userId, 'notes', newNote.id), newNote);
+            renderNotes();
+        }
+
+        async function updateNote(noteId, newTitle, newContent) {
+            const note = allNotes.find(n => n.id === noteId);
+            if (!note) return;
+            note.title = newTitle;
+            note.content = newContent;
+            if (isGuest) localStorage.setItem('plutoGuestNotes', JSON.stringify(allNotes));
+            else if (userId) await setDoc(doc(db, 'users', userId, 'notes', noteId), { title: newTitle, content: newContent }, { merge: true });
+            renderNotes();
+        }
+
+        async function deleteNote(noteId) {
+            allNotes = allNotes.filter(n => n.id !== noteId);
+            if (isGuest) localStorage.setItem('plutoGuestNotes', JSON.stringify(allNotes));
+            else if (userId) await deleteDoc(doc(db, 'users', userId, 'notes', noteId));
+            renderNotes();
+        }
+
+        function editNoteInPanel(noteId) {
+            const note = allNotes.find(n => n.id === noteId);
+            if (note) {
+                noteTitleInput.value = note.title;
+                noteContentInput.value = note.content;
+                editingNoteId = noteId;
+                saveNoteBtn.textContent = 'Save Changes';
+            }
+        }
+        
+        function renderNotes() {
+            notesListEl.innerHTML = '';
+            const sortedNotes = [...allNotes].sort((a, b) => b.createdAt - a.createdAt);
+            if (sortedNotes.length === 0) {
+                notesListEl.innerHTML = `<p class="text-slate-400 text-center p-4">No notes yet. Add one below!</p>`;
+                return;
+            }
+            sortedNotes.forEach(note => {
+                const noteEl = document.createElement('div');
+                noteEl.className = 'bg-slate-100 rounded-lg p-3 shadow-sm';
+                noteEl.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-bold text-sm text-slate-800">${note.title}</h4>
+                        <div class="flex gap-1">
+                            <button class="text-slate-400 hover:text-blue-500 p-1" onclick="editNoteInPanel('${note.id}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-pen"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                            </button>
+                            <button class="text-slate-400 hover:text-red-500 p-1" onclick="deleteNote('${note.id}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-600">${note.content}</p>
+                `;
+                notesListEl.appendChild(noteEl);
+            });
+        }
+        window.editNoteInPanel = editNoteInPanel;
+        window.deleteNote = deleteNote;
+        
+        // --- Calculator Functions ---
+        calculatorButton.addEventListener('click', () => calculatorPanel.classList.toggle('hidden'));
+        closeCalculatorBtn.addEventListener('click', () => calculatorPanel.classList.add('hidden'));
+
+        let firstValue = '';
+        let operator = '';
+        let secondValue = '';
+        let displayValue = '0';
+
+        function updateDisplay() {
+            calculatorDisplay.textContent = displayValue;
+        }
+
+        calculatorButtons.addEventListener('click', (e) => {
+            const { target } = e;
+            const { textContent } = target;
+
+            if (target.matches('button')) {
+                if (target.dataset.action === 'clear') {
+                    firstValue = '';
+                    operator = '';
+                    secondValue = '';
+                    displayValue = '0';
+                } else if (target.dataset.action === 'decimal') {
+                    if (!displayValue.includes('.')) {
+                        displayValue += '.';
+                    }
+                } else if (target.dataset.operator) {
+                    if (firstValue && operator && displayValue !== '0') {
+                        const result = calculate(firstValue, operator, displayValue);
+                        displayValue = String(result);
+                        firstValue = String(result);
+                    } else {
+                        firstValue = displayValue;
+                    }
+                    operator = target.dataset.operator;
+                    displayValue = '0';
+                } else if (target.dataset.action === 'calculate') {
+                    if (firstValue && operator) {
+                        displayValue = String(calculate(firstValue, operator, displayValue));
+                        firstValue = '';
+                        operator = '';
+                    }
+                } else { // It's a number
+                    if (displayValue === '0') {
+                        displayValue = textContent;
+                    } else {
+                        displayValue += textContent;
+                    }
+                }
+                updateDisplay();
+            }
+        });
+
+        function calculate(n1, op, n2) {
+            const num1 = parseFloat(n1);
+            const num2 = parseFloat(n2);
+            if (op === 'add') return num1 + num2;
+            if (op === 'subtract') return num1 - num2;
+            if (op === 'multiply') return num1 * num2;
+            if (op === 'divide') return num1 / num2;
+        }
+        
+        function navigateChat(direction) {
+            if (allChats.length <= 1) return;
+            const currentIndex = allChats.findIndex(chat => chat.id == activeChatId);
+            if (currentIndex === -1) return;
+            let newIndex;
+            if (direction === 'prev') {
+                newIndex = (currentIndex - 1 + allChats.length) % allChats.length;
+            } else { // 'next'
+                newIndex = (currentIndex + 1) % allChats.length;
+            }
+            const newChatId = allChats[newIndex].id;
+            switchChat(newChatId);
+        }
+        
+        prevChatBtn.addEventListener('click', () => navigateChat('prev'));
+        nextChatBtn.addEventListener('click', () => navigateChat('next'));
+
+
+        // --- Close modals on outside click ---
+        document.addEventListener('click', (e) => {
+            if (!notesPanel.contains(e.target) && !notesButton.contains(e.target)) {
+                notesPanel.classList.add('hidden');
+            }
+            if (!todoPanel.contains(e.target) && !todoButton.contains(e.target)) {
+                todoPanel.classList.add('hidden');
+            }
+            if (!calculatorPanel.contains(e.target) && !calculatorButton.contains(e.target)) {
+                calculatorPanel.classList.add('hidden');
+            }
+        });
+
+        // --- Initialize App ---
+        initializeFirebase();
+        sendButton.innerHTML = sendIcon;
+        setInterval(() => {
+            const now = new Date();
+            const dateOptions = { weekday: 'short', month: 'short', day: 'numeric' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+            const hour = now.getHours();
+            if (hour >= 5 && hour < 12) timeIconEl.innerHTML = sunIcon;
+            else if (hour >= 12 && hour < 18) timeIconEl.innerHTML = cloudSunIcon;
+            else timeIconEl.innerHTML = moonIcon;
+            timeDisplayEl.innerHTML = `<div class="font-bold">${new Intl.DateTimeFormat('en-US', timeOptions).format(now)}</div><div class="text-xs">${new Intl.DateTimeFormat('en-US', dateOptions).format(now)}</div>`;
+        }, 1000);
+        
+        window.startNewChat = startNewChat;
+        window.switchChat = switchChat;
+        window.deleteChat = deleteChat;
+        window.editChatTitle = editChatTitle;
+        window.toggleTask = toggleTask;
+        window.deleteTask = deleteTask;
+        window.navigateChat = navigateChat;
+
+        function copyText(button, text) {
+            const textArea = document.createElement('textarea');
+            textArea.style.position = 'fixed';
+            textArea.style.top = '-9999px';
+            textArea.style.left = '-9999px';
+            textArea.style.opacity = '0';
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                if (document.execCommand('copy')) {
+                    button.innerHTML = checkIcon;
+                    setTimeout(() => { button.innerHTML = copyIcon; }, 1500);
+                }
+            } catch (err) { console.error('Failed to copy text: ', err); }
+            document.body.removeChild(textArea);
+        }
+        window.copyText = copyText;
+
+        function scrollActiveChatIntoView() {
+            const activeCard = chatPreviewsEl.querySelector('.ring-2.ring-black');
+            if (activeCard) {
+                activeCard.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'center'
+                });
+            }
+        }
+
+        function renderChatPreviews() { 
+            const newChatButton = `<button onclick="startNewChat()" title="New Chat" class="border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 w-20 h-14 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>`;
+            const chatButtons = allChats.map(chat => {
+                const title = chat.name || (chat.history.length > 0 ? chat.history[0].parts[0].text.substring(0, 20) : 'New Chat');
+                return `<div class="chat-preview-card relative p-2 text-left bg-slate-100 rounded-lg hover:bg-slate-200 w-28 h-14 flex flex-col justify-between flex-shrink-0 cursor-pointer ${chat.id == activeChatId ? 'ring-2 ring-black' : ''}" onclick="switchChat('${chat.id}')">
+                    <p class="text-xs font-semibold text-slate-800 chat-preview-card-content">${title}</p>
+                    <div class="flex justify-end">
+                          <button title="Edit Title" class="p-1 text-slate-400 hover:text-blue-500" onclick="editChatTitle(event, '${chat.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24" 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.13,5.12L18.88,8.87M3,17.25V21H6.75L17.81,9.94L14.06,6.19L3,17.25Z"></path></svg></button>
+                    </div>
+                    <button title="Delete" class="absolute top-1 right-1 p-1 text-slate-400 hover:text-red-500" onclick="deleteChat(event, '${chat.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24" 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>`;
+            }).join('');
+            chatPreviewsEl.innerHTML = newChatButton + chatButtons;
+        }
+        function renderActiveChat() { 
+            chatHistoryEl.innerHTML = '';
+            const activeChat = allChats.find(c => c.id == activeChatId);
+            if (activeChat) {
+                const title = activeChat.name || (activeChat.history.length > 0 ? activeChat.history[0].parts[0].text.substring(0, 40) : 'New Chat');
+                activeChatTitleEl.textContent = title;
+                activeChat.history.forEach(msg => appendMessage(msg.parts[0].text, msg.role, true));
+            } else {
+                activeChatTitleEl.textContent = 'No Chat Selected';
+            }
+        }
+
+        function typeMessage(element, markdownText, callback) {
+            stopTyping();
+            let i = 0;
+            const fullText = markdownText;
+            typingInterval = setInterval(() => {
+                if (typingInterval && i <= fullText.length) {
+                    const substring = fullText.substring(0, i);
+                    element.innerHTML = markdownConverter.makeHtml(substring);
+                    element.scrollTop = element.scrollHeight;
+                    i++;
+                } else {
+                    stopTyping();
+                    element.innerHTML = markdownConverter.makeHtml(fullText);
+                    if (callback) callback();
+                }
+            }, 40); 
+        }
+
+        function appendMessage(content, sender, isInitial = false, isHtml = false) { 
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper group flex w-full items-end gap-2 ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `prose max-w-full overflow-x-auto`;
+            const copyButton = document.createElement('button');
+            copyButton.className = `opacity-0 group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex-shrink-0 transition-all`;
+            copyButton.title = "Copy text";
+            copyButton.innerHTML = copyIcon;
+            copyButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const textToCopy = wrapper.querySelector('.prose').innerText;
+                copyText(copyButton, textToCopy);
+            });
+
+            if(isHtml) {
+                contentDiv.innerHTML = content;
+            } else if (sender === 'user' || isInitial) {
+                contentDiv.innerHTML = markdownConverter.makeHtml(content);
+            } else {
+                wrapper.classList.add('is-thinking');
+                contentDiv.innerHTML = `<img src="https://media.istockphoto.com/id/1331167052/vector/letter-p-paper-logo-template-design.jpg?s=612x612&w=0&k=20&c=HQVvPVRw6ePUu6rWPTP7TpqEDM_n7xJOhtccMxks2m8=" alt="Thinking..." class="w-8 h-8 rounded-full blinking-logo">`;
+            }
+
+            if (sender === 'user') {
+                wrapper.appendChild(copyButton);
+                wrapper.appendChild(contentDiv);
+            } else {
+                wrapper.appendChild(contentDiv);
+                wrapper.appendChild(copyButton);
+            }
+            chatHistoryEl.appendChild(wrapper);
+            chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+            return wrapper;
+        }
+        
+        function handleStartTypingClick() {
+            if (isGenerating) return;
+            typingOverlay.classList.remove('hidden');
+            messageInput.focus();
+        }
+
+        function handleStopGenerationClick() {
+            stopGeneration();
+        }
+
+        startTypingButton.addEventListener('click', handleStartTypingClick);
+        closeResponseBtn.addEventListener('click', handleStopGenerationClick);
+        closeTypingOverlayBtn.addEventListener('click', () => typingOverlay.classList.add('hidden'));
+        typingOverlay.addEventListener('click', (e) => {
+            if (e.target === typingOverlay) typingOverlay.classList.add('hidden');
+        });
+
+        async function generateImage(prompt) {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+            const payload = { instances: { prompt: prompt }, parameters: { "sampleCount": 1 } };
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                const result = await response.json();
+                if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                    return result.predictions[0].bytesBase64Encoded;
+                } else {
+                    throw new Error("Unexpected API response format for image generation.");
+                }
+            } catch (error) {
+                console.error("Image Generation Error:", error);
+                throw error;
+            }
+        }
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (isGenerating) return;
+            const userMessage = messageInput.value.trim();
+            if (!userMessage) return;
+
+            
+            typingOverlay.classList.add('hidden');
+            
+            if (userMessage.startsWith('/imagine ')) {
+                const prompt = userMessage.substring(8).trim();
+                appendMessage(userMessage, 'user', true);
+                messageInput.value = '';
+                const loadingEl = appendMessage(`<div class="flex items-center gap-2"><svg class="spinner w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating image...</div>`, 'model', false, true);
+                try {
+                    const base64Data = await generateImage(prompt);
+                    loadingEl.querySelector('.prose').innerHTML = `<img src="data:image/png;base64,${base64Data}" class="rounded-lg shadow-md" alt="${prompt}">`;
+                } catch (error) {
+                    loadingEl.querySelector('.prose').textContent = 'Sorry, I could not generate the image.';
+                }
+            } else {
+                messageInput.value = '';
+                setGeneratingState(true);
+                responseOverlay.classList.remove('hidden');
+                responseContent.innerHTML = `<div class="flex justify-center items-center h-full"><img src="https://media.istockphoto.com/id/1331167052/vector/letter-p-paper-logo-template-design.jpg?s=612x612&w=0&k=20&c=HQVvPVRw6ePUu6rWPTP7TpqEDM_n7xJOhtccMxks2m8=" alt="Thinking..." class="w-12 h-12 rounded-full blinking-logo"></div>`;
+                responseAbortController = new AbortController();
+                const result = await getAgentResponse(userMessage, responseAbortController.signal);
+                if (result.aborted) return;
+                
+                appendMessage(userMessage, 'user', true);
+
+                if (result.error) {
+                    appendMessage(result.error, 'model', true);
+                    setGeneratingState(false);
+                    responseOverlay.classList.add('hidden');
+                } else if (result.content) {
+                    typeMessage(responseContent, result.content, () => {
+                        setTimeout(() => {
+                            responseOverlay.classList.add('hidden');
+                            const activeChat = allChats.find(c => c.id == activeChatId);
+                            const lastMessage = activeChat.history[activeChat.history.length - 1];
+                            appendMessage(lastMessage.parts[0].text, 'model', true);
+                            setGeneratingState(false);
+                            handleStartTypingClick();
+                        }, 1500);
+                    });
+                } else {
+                    setGeneratingState(false);
+                    responseOverlay.classList.add('hidden');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
