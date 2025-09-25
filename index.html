@@ -475,7 +475,7 @@
 
         async function initializeFirebase() {
             const firebaseConfig = {
-              apiKey: "AIzaSyDAg5A4dJ1ZcNb8lsmUZw2k3C9wv2rPSQo",
+              apiKey: "AIzaSyAz2aI_B-UtS6pv0253UtByq2h0stblCvk",
               authDomain: "pluto-a0033.firebaseapp.com",
               projectId: "pluto-a0033",
               storageBucket: "pluto-a0033.appspot.com",
@@ -885,7 +885,7 @@
             
             const historyForAPI = [...activeChat.history, { role: 'user', parts: [{ text: userMessage }] }];
 
-            const apiKey = "AIzaSyDOYtDVPIIYbqgXReJyskbgR1t93sKep5A";
+            const apiKey = "AIzaSyAz2aI_B-UtS6pv0253UtByq2h0stblCvk";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const apiRequestBody = { 
                 contents: historyForAPI,
@@ -1536,7 +1536,7 @@
         });
 
         async function generateImage(prompt) {
-            const apiKey = ""; 
+            const apiKey = "AIzaSyAz2aI_B-UtS6pv0253UtByq2h0stblCvk"; 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
             const payload = { instances: { prompt: prompt }, parameters: { "sampleCount": 1 } };
             
